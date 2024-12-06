@@ -1,0 +1,1 @@
+python UPDog.py --vcf ~/Documents/UPD/240510_A01771_0441_AHFLL2DSXC.vcf.gz --proband_id 24M08922 --ped ~/Documents/UPD/240510_A01771_0441_AHFLL2DSXC.ped --output ./test/24M08922 --min_dp 20 --block_size 1000000 --min_gq 15 --min_qual 15 --min_variants_per_block 100 --p_value 0.001 --min_blocks 5 --min_proportion 0.01 --chromosome chr22

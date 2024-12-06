@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
 import io
-
+import pandas as pd
 from pysam import VariantFile
 from pyvariantfilter.variant import Variant
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import scipy
+from scipy import stats
+
 sns.set()
 
 def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, block_size, min_dp ,min_gq, min_qual, proband_id):
@@ -27,16 +29,19 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 	is_biparental_count = 0
 
 	block_dict = {}
+	df_variants = pd.DataFrame()
 
 	last_block = 0
 	block_count = 1
+	variant_counter = 1
+	print_counter = 1
 
 	for rec in bcf_in.fetch(chromosome_to_analyze):
-
 		chrom = rec.chrom
 		pos = rec.pos
 		ref = rec.ref
 		alt = rec.alts
+		# freq = rec.freq
 		filter_status = rec.filter.keys()
 		info = rec.info
 		quality = rec.qual
@@ -50,7 +55,7 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 		if alt == '*':
 			continue
 
-		if quality < min_qual:
+		if quality <= min_qual:
 
 			continue
 
@@ -60,6 +65,16 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 		for family_member_id in family_member_ids:
 
 			sample_genotype_data = rec.samples[family_member_id]
+
+			# format_genotype_data = rec.format[family_member_id]
+			# key_counter = 1
+			# for key in rec.format.keys:
+			# 	print(key)
+			# 	key_counter +=1
+			# 	if key_counter >5:
+			# 		exit()
+			
+			# print(f"format_genotype_data, {format_genotype_data}")
 
 			ref_and_alt = [ref, alt]
 
@@ -115,13 +130,43 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 			if dp == None:
 
 				dp  = 0
+			
+			af = sample_genotype_data['AF']
+
+			if af == None:
+
+				af  = 0
+
 			try:
 				new_variant.add_genotype(family_member_id, gts, ads, gq, dp)
 			except:
 				print(chrom, pos, ref, alt, gts)
 				raise
-				
 
+		variants_dict_entry = {
+			'variant_count': variant_counter,
+			'id': family_member_id,
+			'pos': pos,
+			'af': af,
+			'gq': gq,
+			'dp': dp,
+			'chrom': chrom,
+			'ref': ref,
+			# 'alts': alt,
+			# 'gts': gts,
+			# 'ad': ad,
+			# 'ads': ads,
+			'quality': quality
+		}
+		
+
+		if (int(gq) >= min_gq & int(dp) >= min_dp & int(quality) >= min_qual):
+			# print(variant_counter)
+			variants_df = pd.DataFrame(variants_dict_entry, index=[variant_counter])
+			df_variants = pd.concat([df_variants, variants_df])
+			variant_counter += 1
+			# if variant_counter >100:
+			# 	exit()
 
 		# now we have created variant object let us count the number for each block
 
@@ -209,7 +254,7 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 				block_count = block_count +1
 
 
-	return block_dict
+	return block_dict, df_variants
 
 def replace_with_na(df, column, min_count):
 	
@@ -259,6 +304,43 @@ def create_ax_for_plotting(chromosome, df, block_size, output):
 
 	plt.close("all")
 
+def plot_variants(chromosome, df, output):
+
+	chrom_prop_df = df[df['chrom'] ==chromosome]
+
+	plot_min = min(chrom_prop_df['pos'])
+	plot_max = max(chrom_prop_df['pos'])
+
+	# we want to scale the X axis labels so that it looks pretty
+	chrom_size = plot_max
+
+	if chrom_size > 100000000:
+		
+		scale_factor = 10
+		
+	else:
+		
+		scale_factor = 3
+
+	# xticks_chrom = np.arange(plot_min, plot_max, block_size*scale_factor)
+	# xticks_labels = np.arange(plot_min, plot_max, block_size*scale_factor)
+	# x_ticks_labels = [int(x/1000000) for x in xticks_chrom]
+
+	# plot and format axis
+	fig, ax = plt.subplots(figsize=(16,5))
+	ax.scatter(x='pos',y='af', data=chrom_prop_df, s=2, alpha=0.5)
+	# ax.set_xticks(xticks_chrom)
+	# ax.set_xlim([plot_min-1000000, plot_max+1000000])
+	# ax.set_ylim([-0.02, 1.05])
+	# ax.set_xticklabels(x_ticks_labels)
+	ax.set_xlabel(f'Chromosome {chromosome} Position (Mb)')
+	ax.set_ylabel('Proportion of Variants')
+	# ax.legend(loc='upper right')
+
+	plt.savefig(output, format='png')
+
+	plt.close("all")
+
 def is_significant(df, expected, key):
 	
 	if df[key] == None:
@@ -270,7 +352,7 @@ def is_significant(df, expected, key):
 	variant_count = df['variant_count']
 	
 	
-	return scipy.stats.binom_test(mendel_errors, variant_count, expected, alternative='greater')
+	return scipy.stats.binomtest(mendel_errors, variant_count, expected, alternative='greater').pvalue
 
 
 def merge_contiguous_blocks(df, block_size, analysis, analysis2):
