@@ -28,11 +28,10 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 	is_biparental_count = 0
 
 	block_dict = {}
-	df_variants = pd.DataFrame()
+	variant_list = []
 
 	last_block = 0
 	block_count = 1
-	variant_counter = 1
 
 	for rec in bcf_in.fetch(chromosome_to_analyze):
 		chrom = rec.chrom
@@ -123,33 +122,21 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 
 				af  = 0
 
+			else:
+
+				af = af[0]
+
 			try:
 				new_variant.add_genotype(family_member_id, gts, ads, gq, dp)
 			except:
 				print(chrom, pos, ref, alt, gts)
 				raise
 
-		variants_dict_entry = {
-			'variant_count': variant_counter,
-			'id': family_member_id,
-			'pos': pos,
-			'af': af,
-			'gq': gq,
-			'dp': dp,
-			'chrom': chrom,
-			'ref': ref,
-			'quality': quality
-		}
-		
-
-		if (int(gq) >= min_gq & int(dp) >= min_dp & int(quality) >= min_qual):
-			variants_df = pd.DataFrame(variants_dict_entry, index=[variant_counter])
-			df_variants = pd.concat([df_variants, variants_df])
-			variant_counter += 1
-
 		# now we have created variant object let us count the number for each block
 
 		if new_variant.is_snp() and new_variant.all_samples_pass_genotype_quality(min_dp, min_gq):
+
+			variant_list.append([chrom, pos, ads[0], ads[1], af, dp, gq, quality])
 
 			paternal_uniparental_ambiguous = new_variant.matches_paternal_uniparental_ambiguous(min_parental_gq = min_gq, min_parental_depth = min_dp)
 			maternal_uniparental_ambiguous = new_variant.matches_maternal_uniparental_ambiguous(min_parental_gq = min_gq, min_parental_depth = min_dp)
@@ -215,8 +202,6 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 
 				}
 
-
-
 				variant_count = 0
 				matches_paternal_uniparental_ambiguous_count = 0
 				matches_maternal_uniparental_ambiguous_count = 0
@@ -233,7 +218,7 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 				block_count = block_count +1
 
 
-	return block_dict, df_variants
+	return block_dict, variant_list
 
 def replace_with_na(df, column, min_count):
 	
@@ -281,35 +266,51 @@ def create_ax_for_plotting(chromosome, df, block_size, output):
 
 	plt.savefig(output, format='png')
 
-	plt.close("all")
+	plt.close('all')
 
-def plot_variants(chromosome, df, output):
+def plot_variants(chromosome, df, output, block_size, sample_fraction=0.3):
+	"""
+	Plots allele frequency vs. position for a given chromosome with optional downsampling.
 
-	chrom_prop_df = df[df['chrom'] ==chromosome]
+	Parameters:
+	chromosome (str): The chromosome to plot.
+	df (pd.DataFrame): DataFrame containing the variant data with 'chrom', 'pos', and 'af' columns.
+	output (str): Path to save the plot as a PNG file.
+	block_size (int): Block size for xticks calculation.
+	sample_fraction (float): Fraction of data to sample for plotting (default: 0.1).
+	"""
+	# Filter data for the specific chromosome
+	chrom_prop_df = df[df['chrom'] == chromosome]
 
-	plot_min = min(chrom_prop_df['pos'])
-	plot_max = max(chrom_prop_df['pos'])
+	# Downsample the data
+	if sample_fraction < 1.0:
+		chrom_prop_df = chrom_prop_df.sample(frac=sample_fraction, random_state=42)
 
-	# we want to scale the X axis labels so that it looks pretty
+	# Calculate plot range and scaling
+	plot_min = chrom_prop_df['pos'].min()
+	plot_max = chrom_prop_df['pos'].max()
+
 	chrom_size = plot_max
 
-	if chrom_size > 100000000:
-		
-		scale_factor = 10
-		
-	else:
-		
-		scale_factor = 3
+	scale_factor = 10 if chrom_size > 100000000 else 3
 
-	# plot and format axis
-	fig, ax = plt.subplots(figsize=(16,5))
-	ax.scatter(x='pos',y='af', data=chrom_prop_df, s=2, alpha=0.5)
+	xticks_chrom = np.arange(plot_min, plot_max, block_size * scale_factor)
+	x_ticks_labels = [int(x / 1000000) for x in xticks_chrom]
+
+	# Plot and format axis
+	fig, ax = plt.subplots(figsize=(20, 5))
+	ax.scatter(x='pos', y='af', data=chrom_prop_df, s=2, alpha=0.5)
+	ax.set_xticks(xticks_chrom)
+	ax.set_xlim([plot_min - 1000000, plot_max + 1000000])
+	ax.set_ylim([-0.02, 1.05])
+	ax.set_xticklabels(x_ticks_labels)
 	ax.set_xlabel(f'Chromosome {chromosome} Position (Mb)')
-	ax.set_ylabel('Proportion of Variants')
-	
-	plt.savefig(output, format='png')
+	ax.set_ylabel('Beta Allele Frequency')
 
-	plt.close("all")
+	# Save and close plot
+	plt.savefig(output, format='png')
+	plt.close('all')
+
 
 def is_significant(df, expected, key):
 	

@@ -1,59 +1,67 @@
 # UniParental Disomy triO investiGator (UPDOG)
 
-## What's UPDOG?
+A Python tool for detecting and analyzing UniParental Disomy (UPD) events in Next Generation Sequencing (NGS) trio data.
 
-UniParental Disomy (UPD) is genetic phenomenon where an individual inherits two copies of a chromosome from a single parent and none from the other. UPD can take the form of heterodisomy where the child inherits non identical chromosomes from one parent, or isodisomy where the child inherits a duplicate chromosome from a parent [1].
+## Overview
 
-UPDOG is a Python tool to find and plot UPD events in Next Generation Sequencing (NGS) Whole Genome Sequencing trio data. Given a VCF containing a sample and the sample's two parents the tool will produce and plot a set of metics for each chromosome. The user can then examine these plots for signs of UPD events. Alternatively, the tool produces a CSV file containing the statistically significant UPD events.
+UniParental Disomy (UPD) occurs when an individual inherits both copies of a chromosome from a single parent and none from the other. UPD manifests in two forms:
+- Heterodisomy: Inheritance of non-identical chromosomes from one parent
+- Isodisomy: Inheritance of a duplicate chromosome from one parent
 
+UPDOG analyzes VCF files containing trio data (child and both parents) to identify and visualize potential UPD events through:
+1. Calculating chromosome segment metrics
+2. Detecting statistically significant Mendelian errors
+3. Generating visualizations and detailed reports
 
-### Principle
+## Installation
 
-1) Examine each chromosome in segments e.g. 1MB and calculate the proportion of mendellian errors in each segment.
-2) Calculate the expected number of mendellian errors (Mean over all chromosomes).
-3) For each segment in step 1 measure whether each segment has a statistically significant increase in each type of mendelian error.
-4) Merge contiguous statistically significant segments together.
-5) Apply hard filters to the UPD calls and report to user.
-
-#### Mendellian Errors
-
-Each UPD event produces signature mendellian errors in trio genotypes [2]
-
-Coming Soon
-
-#### Statistics
-
-Coming Soon
-
-## Install
-```
+```bash
 pip install pyupdog
 ```
-## Run
 
+## Usage
+
+Basic command:
+```bash
+UPDog.py --vcf <input.vcf.gz> --proband_id <sample_id> --ped <family.ped> --output <output_prefix>
 ```
 
-UPDog.py --vcf test_data/200518_A00748_0027_AHLKFCDRXX.vcf.gz \
---proband_id test_sample \
---ped test_data/200518_A00748_0027_AHLKFCDRXX.ped \
---output results/200518_A00748_0027_AHLKFCDRXX \
---min_dp 25 \
---min_gq 15 \
---min_qual 20 \
---p_value 0.001 \
---block_size 1000000 \
---min_variants_per_block 100 \
---min_blocks 2 \
---min_proportion 0.01
-
-
+Full options:
+```bash
+UPDog.py \
+  --vcf <input.vcf.gz>           # Input VCF (must be bgzipped and tabixed)
+  --proband_id <sample_id>       # Sample ID of the proband in VCF
+  --ped <family.ped>             # PED file describing family relationships
+  --output <output_prefix>       # Output name prefix
+  --min_dp <int>                 # Minimum genotype depth (default: 20)
+  --min_gq <int>                 # Minimum genotype quality (default: 20)
+  --min_qual <int>               # Minimum QUAL value (default: 90)
+  --block_size <int>             # Block size for UPD calculation (default: 1000000)
+  --min_variants_per_block <int> # Minimum variants per block (default: 100)
+  --p_value <float>              # Max P-value for significance (default: 0.001)
+  --min_blocks <int>             # Minimum contiguous blocks for calls (default: 5)
+  --min_proportion <float>       # Minimum UPD variant proportion (default: 0.01)
+  --chromosome <str>             # Restrict to single chromosome (testing only)
+  --prop_plot <bool>             # Plot variant proportions (default: False)
 ```
-## Analyse Output
 
-Coming Soon
+## Analysis Method
+
+1. **Segmentation**: Examines each chromosome in fixed-size segments (default 1MB)
+2. **Metric Calculation**: Computes proportion of Mendelian errors per segment
+3. **Baseline Determination**: Calculates expected Mendelian error rate across all chromosomes
+4. **Statistical Analysis**: Identifies segments with significant increases in Mendelian errors
+5. **Merging**: Combines adjacent significant segments
+6. **Filtering**: Applies quality filters to generate final UPD calls
+
+## Output Files
+
+- `*_UPD_calls.csv`: Tab-separated file containing significant UPD events
+- `*_raw_data.csv`: Raw metrics for all analyzed segments
+- `*_chr*_UPD.png`: UPD metric plots per chromosome
+- `*_chr*_baf.png`: B-allele frequency plots (if --prop_plot enabled)
 
 ## References
 
-[1] https://en.wikipedia.org/wiki/Uniparental_disomy
-[2] UPDio https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3975066/
-
+1. [UniParental Disomy - Wikipedia](https://en.wikipedia.org/wiki/Uniparental_disomy)
+2. [UPDio: A Tool for Detection of Iso- and Heterodisomy in Parent-Child Trios Using SNP Microarrays](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3975066/)
