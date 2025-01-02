@@ -6,8 +6,8 @@ import pandas as pd
 from pyvariantfilter.family import Family
 from pyvariantfilter.family_member import FamilyMember
 from pyvariantfilter.variant_set import VariantSet
-from upd.utility_funcs import calculate_upd_metrics_per_chromosome, create_ax_for_plotting, replace_with_na,is_significant, merge_contiguous_blocks, apply_filters, get_genome_build
-
+from upd.utility_funcs import calculate_upd_metrics_per_chromosome, create_ax_for_plotting, replace_with_na,is_significant, merge_contiguous_blocks, apply_filters, get_genome_build, plot_variants
+from pysam import VariantFile
 
 parser = argparse.ArgumentParser(description='Find UPD events in NGS Trio Data')
 parser.add_argument('--vcf', type=str, nargs=1, required=True,
@@ -17,15 +17,16 @@ parser.add_argument('--proband_id', type=str, nargs=1, required=True,
 parser.add_argument('--ped', type=str, nargs=1, required=True,
 				help='A ped file describing the family relationships.')
 parser.add_argument('--output', type=str, nargs=1, required=True, help='The output name prefix.')
-parser.add_argument('--min_dp', type=int, nargs=1, required=True, help='The minimum genotype depth.')
-parser.add_argument('--block_size', type=int, nargs=1, required=True, help='The block size for calculating areas of chromsome affected by UPD.')
-parser.add_argument('--min_gq', type=int, nargs=1, required=True, help='The minimum genotype quality (GQ).')
-parser.add_argument('--min_qual', type=int, nargs=1, required=True, help='The minimum QUAL value.')
-parser.add_argument('--min_variants_per_block', type=int, nargs=1, required=True, help='The minimum number of variants in a block.')
-parser.add_argument('--p_value', type=float, nargs=1, required=True, help='The maximum P value for statistical test for block significance.')
-parser.add_argument('--chromosome', type=str, nargs=1, required=False, help='Restrict to single chromosome. WARNING: For testing purposes only.')
-parser.add_argument('--min_blocks', type=int, nargs=1, required=True, help='The minimum number of contiguous blocks for a call not to be filtered.')
-parser.add_argument('--min_proportion', type=float, nargs=1, required=True, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter.')
+parser.add_argument('--min_dp', type=int, nargs=1, required=False, default=20, help='The minimum genotype depth. Default = 20')
+parser.add_argument('--block_size', type=int, nargs=1, required=False, default=1000000, help='The block size for calculating areas of chromsome affected by UPD. Default = 1000000')
+parser.add_argument('--min_gq', type=int, nargs=1, required=False, default=20, help='The minimum genotype quality (GQ). Default = 90')
+parser.add_argument('--min_qual', type=int, nargs=1, required=False, default=90, help='The minimum QUAL value. Default = 15')
+parser.add_argument('--min_variants_per_block', type=int, nargs=1, default=100, help='The minimum number of variants in a block. Default = 100')
+parser.add_argument('--p_value', type=float, nargs=1, required=False, default=0.001, help='The maximum P value for statistical test for block significance. Default = 0.001')
+parser.add_argument('--chromosome', type=str, nargs=1, required=False, help='Restrict to single chromosome. WARNING: For testing purposes only. E.g. "chr22"')
+parser.add_argument('--min_blocks', type=int, nargs=1, required=False, default=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
+parser.add_argument('--min_proportion', type=float, nargs=1, required=False, default=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
+parser.add_argument('--prop_plot', type=bool, nargs=1, required=False, default=False, help='Plot proportion of variants plot per chromosome. True/False, default = False')
 
 args = parser.parse_args()
 
@@ -33,15 +34,15 @@ vcf = args.vcf[0]
 proband_id = args.proband_id[0]
 ped = args.ped[0]
 output = args.output[0]
-min_dp = args.min_dp[0]
-min_gq = args.min_gq[0]
-min_qual = args.min_qual[0]
-p_value = args.p_value[0]
-block_size = args.block_size[0]
-min_variants_per_block = args.min_variants_per_block[0]
-min_blocks = args.min_blocks[0]
-min_proportion = args.min_proportion[0]
-
+min_dp = args.min_dp
+min_gq = args.min_gq
+min_qual = args.min_qual
+p_value = args.p_value
+block_size = args.block_size
+min_variants_per_block = args.min_variants_per_block
+min_blocks = args.min_blocks
+min_proportion = args.min_proportion
+prop_plot = args.prop_plot
 
 if args.chromosome != None:
 
@@ -58,7 +59,10 @@ else:
 genome_build = get_genome_build(vcf)
 
 # read ped into df
-ped_df = pd.read_csv(ped, sep='\t', names=['family_id', 'sample_id', 'paternal_id', 'maternal_id', 'sex', 'affected'])
+ped_df = pd.read_csv(ped, sep='\t', names=['family_id', 'sample_id', 'paternal_id', 'maternal_id', 'sex', 'affected'], dtype={'sex': str,
+																															 'affected': str,
+																															 'paternal_id': str,
+																															 'maternal_id': str})
 
 # filter by proband
 filtered_ped = ped_df[ped_df['sample_id']==proband_id]
@@ -71,11 +75,14 @@ sex = filtered_ped['sex'].iloc[0]
 # get family id
 family_id = filtered_ped['family_id'].iloc[0]
 
+# Record as singleton if we don't have mum and dad
+if dad == '0' or mum == '0':
 
-# exit if we don't have mum and dad
-if dad == '0' or mum == '0' or dad == 0 or mum == 0:
-	print ('Cannot run program on this sample as we no not have the mother and father in the PED file.')
-	exit()
+	singleton = True
+
+else:
+
+	singleton = False
 
 # make a family object
 my_family = Family(family_id)
@@ -84,7 +91,7 @@ my_family.read_from_ped_file(ped, family_id, proband_id)
 # check which chromosomes to analyse
 if just_one_chromosome == True:
 
-	if sex == 1 and chromosome == 'X':
+	if sex == '1' and chromosome == 'X':
 
 		print ('Chromosome cannot be X if proband is male.')
 		exit()
@@ -97,16 +104,23 @@ else:
 
 	chromosomes_to_analyze = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', 'X']
 
-	if sex == 2:
+	if sex == '2':
 
 		print ('Proband is Female - will analyse chromosomes 1-22 and X')
 
-	else:
+	elif sex == '1':
 
 		print ('Proband is Male - will analyse chromosomes 1-22 only.')
 		chromosomes_to_analyze.pop()
 
+	elif sex == '0':
+
+		print ('Sex not set assuming proband is Male - will analyse chromosomes 1-22 only.')
+		chromosomes_to_analyze.pop()
+		sex = '1'	
+
 	if genome_build == 38:
+
 		print('Genome build is 38')
 		chromosomes_to_analyze = ['chr' + c for c in chromosomes_to_analyze]
 
@@ -114,21 +128,34 @@ else:
 
 		print ('Genome build is 37')
 
-print ('Analysing chromosomses', chromosomes_to_analyze)
-		
-# now calculate UPD metrics using calculate_upd_metrics_per_chromosome()
-master_df = pd.DataFrame()
+print ('Analysing chromosomes', ', '.join(chromosomes_to_analyze))
+
+master_df_list = []
+variants_df_list = []
+
 for chromosome in chromosomes_to_analyze:
 
-	print (f'Calculating UPD Metrics for Chromosome {chromosome}')
-
-	per_chrom_dict = calculate_upd_metrics_per_chromosome(vcf, chromosome, my_family, block_size, min_dp, min_gq, min_qual, proband_id)
+	print(f'Calculating UPD Metrics for Chromosome {chromosome}')
 	
-	df = pd.DataFrame(per_chrom_dict).transpose()
+	block_dict, variants_list = calculate_upd_metrics_per_chromosome(vcf, chromosome, my_family, block_size, min_dp, min_gq, min_qual, proband_id)
 	
+	df = pd.DataFrame(block_dict).transpose()
 	df['chrom'] = chromosome
 	
-	master_df = master_df.append(df)
+	master_df_list.append(df)
+	
+	if prop_plot:
+		
+		df_variants = pd.DataFrame(variants_list, columns=['chrom', 'pos', 'ref_count', 'alt_count', 'af', 'dp', 'gq', 'qual'])
+		variants_df_list.append(df_variants)
+
+# Combine all collected dataframes at the end
+master_df = pd.concat(master_df_list, ignore_index=True)
+
+if prop_plot:
+	variants_df = pd.concat(variants_df_list, ignore_index=True)
+
+variants_df.to_csv('test.csv')
 
 
 # convert columns to proportions e.g. proportion of variants with errors
@@ -154,28 +181,38 @@ master_df['prop_me'] = master_df.apply(replace_with_na, axis=1, args=('prop_me',
 
 
 # plot data and save to file
-prop_df = master_df[[
+if singleton:
+
+	prop_df = master_df[[
 		   'prop_is_homozygous_count',
-		   'prop_matches_maternal_uniparental_ambiguous_count',
-		   'prop_matches_maternal_uniparental_isodisomy_count',
-		   'prop_matches_paternal_uniparental_ambiguous_count',
-		   'prop_matches_paternal_uniparental_isodisomy_count',
 		   'end',
 		  'chrom']]
+else:
+	prop_df = master_df[[
+			'prop_is_homozygous_count',
+			'prop_matches_maternal_uniparental_ambiguous_count',
+			'prop_matches_maternal_uniparental_isodisomy_count',
+			'prop_matches_paternal_uniparental_ambiguous_count',
+			'prop_matches_paternal_uniparental_isodisomy_count',
+			'end',
+			'chrom']]
 
 for chromosome in chromosomes_to_analyze:
 
 	print (f'Plotting Metrics for chromosome: {chromosome}')
 
-	if 'chr' in chromosome:
+	plot_location = f'{output}_{chromosome}_UPD.png'
+	variant_plot_location = f'{output}_{chromosome}_baf.png'
 
-		plot_location = f'{output}_{chromosome}_UPD.png'
-
-	else:
-
-		plot_location = f'{output}_chr{chromosome}_UPD.png'
-
+	# create upd plot from genotypes
 	create_ax_for_plotting(chromosome, prop_df, block_size, plot_location)
+	
+	# create allele frequency plot
+	if prop_plot:
+		
+		print(f'Plotting {len(variants_df.index)} variants in proportion of variants plot {chromosome}')
+		
+		plot_variants(chromosome, variants_df, variant_plot_location, block_size)
 
 
 # get mean so we know what expected ratio is i.e. that caused by errors - hmm what if every chromosome is UPD?
@@ -184,8 +221,6 @@ mean_matches_maternal_uniparental_ambiguous_count = master_df['matches_maternal_
 
 mean_matches_paternal_uniparental_ambiguous_count = master_df['matches_paternal_uniparental_ambiguous_count'].sum() / master_df['variant_count'].sum()
 mean_matches_paternal_uniparental_isodisomy_count = master_df['matches_paternal_uniparental_isodisomy_count'].sum() / master_df['variant_count'].sum()
-
-
 
 master_df['sig_prop_matches_maternal_uniparental_ambiguous_count'] = master_df.apply(is_significant, axis=1, args=(mean_matches_maternal_uniparental_ambiguous_count, 'matches_maternal_uniparental_ambiguous_count', ))
 master_df['sig_prop_matches_maternal_uniparental_isodisomy_count'] = master_df.apply(is_significant, axis=1, args=(mean_matches_maternal_uniparental_isodisomy_count, 'matches_maternal_uniparental_isodisomy_count', ))
@@ -201,7 +236,7 @@ print ('Calculating statistically significiant UPD events.')
 # adjust supplied p value by the number of tests we are going to do - one for each type of mendellian error and block
 p_value =  p_value / master_df.shape[0] / 4 
 
-# now restrict to statistically significiant parts of chromosomses and merge contiguous blocks together
+# now restrict to statistically significiant parts of chromosomes and merge contiguous blocks together
 mat_amb = master_df[(master_df['sig_prop_matches_maternal_uniparental_ambiguous_count'] < p_value)]
 mat_iso = master_df[(master_df['sig_prop_matches_maternal_uniparental_isodisomy_count'] < p_value)]
 pat_amb = master_df[(master_df['sig_prop_matches_paternal_uniparental_ambiguous_count'] < p_value)]
