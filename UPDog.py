@@ -6,7 +6,7 @@ import pandas as pd
 from pyvariantfilter.family import Family
 from pyvariantfilter.family_member import FamilyMember
 from pyvariantfilter.variant_set import VariantSet
-from upd.utility_funcs import calculate_upd_metrics_per_chromosome, create_ax_for_plotting, replace_with_na,is_significant, merge_contiguous_blocks, apply_filters, get_genome_build, plot_variants #,create_variants_table
+from upd.utility_funcs import calculate_upd_metrics_per_chromosome, create_ax_for_plotting, replace_with_na,is_significant, merge_contiguous_blocks, apply_filters, get_genome_build, plot_variants
 from pysam import VariantFile
 
 parser = argparse.ArgumentParser(description='Find UPD events in NGS Trio Data')
@@ -17,16 +17,16 @@ parser.add_argument('--proband_id', type=str, nargs=1, required=True,
 parser.add_argument('--ped', type=str, nargs=1, required=True,
 				help='A ped file describing the family relationships.')
 parser.add_argument('--output', type=str, nargs=1, required=True, help='The output name prefix.')
-parser.add_argument('--min_dp', type=int, nargs='?', required=False, const=20, help='The minimum genotype depth. Default = 20')
-parser.add_argument('--block_size', type=int, nargs='?', required=False, const=1000000, help='The block size for calculating areas of chromsome affected by UPD. Default = 1000000')
-parser.add_argument('--min_gq', type=int, nargs='?', required=False, const=15, help='The minimum genotype quality (GQ). Default = 15')
-parser.add_argument('--min_qual', type=int, nargs='?', required=False, const=15, help='The minimum QUAL value. Default = 15')
-parser.add_argument('--min_variants_per_block', type=int, nargs='?', required=True, const=100, help='The minimum number of variants in a block. Default = 100')
-parser.add_argument('--p_value', type=float, nargs='?', required=False, const=0.001, help='The maximum P value for statistical test for block significance. Default = 0.001')
+parser.add_argument('--min_dp', type=int, nargs='?', required=False, default=20, help='The minimum genotype depth. Default = 20')
+parser.add_argument('--block_size', type=int, nargs='?', required=False, default=1000000, help='The block size for calculating areas of chromsome affected by UPD. Default = 1000000')
+parser.add_argument('--min_gq', type=int, nargs='?', required=False, default=15, help='The minimum genotype quality (GQ). Default = 15')
+parser.add_argument('--min_qual', type=int, nargs='?', required=False, default=15, help='The minimum QUAL value. Default = 15')
+parser.add_argument('--min_variants_per_block', type=int, nargs='?', required=True, default=100, help='The minimum number of variants in a block. Default = 100')
+parser.add_argument('--p_value', type=float, nargs='?', required=False, default=0.001, help='The maximum P value for statistical test for block significance. Default = 0.001')
 parser.add_argument('--chromosome', type=str, nargs=1, required=False, help='Restrict to single chromosome. WARNING: For testing purposes only. E.g. "chr22"')
-parser.add_argument('--min_blocks', type=int, nargs='?', required=False, const=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
-parser.add_argument('--min_proportion', type=float, nargs='?', required=False, const=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
-parser.add_argument('--prop_plot', type=bool, nargs='?', required=False, const=False, help='Plot proportion of variants plot per chromosome. True/False, default = False')
+parser.add_argument('--min_blocks', type=int, nargs='?', required=False, default=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
+parser.add_argument('--min_proportion', type=float, nargs='?', required=False, default=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
+parser.add_argument('--prop_plot', type=bool, nargs='?', required=False, default=False, help='Plot proportion of variants plot per chromosome. True/False, default = False')
 
 args = parser.parse_args()
 
@@ -80,8 +80,6 @@ if dad == '0' or mum == '0' or dad == 0 or mum == 0:
 
 # make a family object
 my_family = Family(family_id)
-
-print(ped, family_id, proband_id)
 my_family.read_from_ped_file(ped, family_id, proband_id)
 
 # check which chromosomes to analyse
@@ -118,7 +116,7 @@ else:
 		print ('Genome build is 37')
 
 print ('Analysing chromosomses', chromosomes_to_analyze)
-print (f"min_dp = {min_dp}, min_gq = {min_gq}, min_qual = {min_qual}")
+
 # now calculate UPD metrics using calculate_upd_metrics_per_chromosome()
 master_df = pd.DataFrame()
 variants_df = pd.DataFrame()
@@ -137,27 +135,17 @@ for chromosome in chromosomes_to_analyze:
 
 	if prop_plot:
 
-		print (f'Preparing data for proportion of variants plot {chromosome}')
-
 		df_variants = upd_func_output[1]
 		
 		df_variants['chromosome'] = chromosome
 		
-		# print(df_variants.head())
-		# exit()
 		variants_df = variants_df._append(df_variants)
-		print(f"variants to plot: {len(variants_df.index)}")
+		print(f"Plotting {len(variants_df.index)} variants in proportion of variants plot {chromosome}")
+
 # save raw data to file
 print ('Saving Variants file to disk.')
 variants_df.to_csv(f'{output}_variants_data_{chromosome}.csv', sep='\t', index=False)
-# 	print()
-# 	vcf, chromosome, my_family, block_size, min_dp, min_gq, min_qual, proband_id
-# vcf_df = VariantFile(vcf)
-# print(vcf_df)
-# for col in vcf_df.columns:
-# 	print(col)
 
-# vcf_filtered = vcf.loc[vcf['column']]
 
 # convert columns to proportions e.g. proportion of variants with errors
 master_df['prop_alleles_identical_to_dad_count'] = master_df['alleles_identical_to_dad_count']/master_df['variant_count']
@@ -215,7 +203,7 @@ for chromosome in chromosomes_to_analyze:
 	
 	if prop_plot:
 		
-		print (f'Plotting variants for chromosome: {chromosome}')
+		print(f"Plotting {len(variants_df.index)} variants in proportion of variants plot {chromosome}")
 		
 		plot_variants(chromosome, variants_df, variant_plot_location)
 
@@ -244,7 +232,6 @@ print ('Calculating statistically significiant UPD events.')
 p_value =  p_value / master_df.shape[0] / 4 
 
 # now restrict to statistically significiant parts of chromosomses and merge contiguous blocks together
-
 mat_amb = master_df[(master_df['sig_prop_matches_maternal_uniparental_ambiguous_count'] < p_value)]
 mat_iso = master_df[(master_df['sig_prop_matches_maternal_uniparental_isodisomy_count'] < p_value)]
 pat_amb = master_df[(master_df['sig_prop_matches_paternal_uniparental_ambiguous_count'] < p_value)]

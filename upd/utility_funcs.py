@@ -8,7 +8,6 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import scipy
-from scipy import stats
 
 sns.set()
 
@@ -34,16 +33,13 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 	last_block = 0
 	block_count = 1
 	variant_counter = 1
-	print_counter = 1
 
 	for rec in bcf_in.fetch(chromosome_to_analyze):
 		chrom = rec.chrom
 		pos = rec.pos
 		ref = rec.ref
 		alt = rec.alts
-		# freq = rec.freq
 		filter_status = rec.filter.keys()
-		info = rec.info
 		quality = rec.qual
 
 		if len(alt) != 1:
@@ -65,16 +61,6 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 		for family_member_id in family_member_ids:
 
 			sample_genotype_data = rec.samples[family_member_id]
-
-			# format_genotype_data = rec.format[family_member_id]
-			# key_counter = 1
-			# for key in rec.format.keys:
-			# 	print(key)
-			# 	key_counter +=1
-			# 	if key_counter >5:
-			# 		exit()
-			
-			# print(f"format_genotype_data, {format_genotype_data}")
 
 			ref_and_alt = [ref, alt]
 
@@ -152,21 +138,14 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 			'dp': dp,
 			'chrom': chrom,
 			'ref': ref,
-			# 'alts': alt,
-			# 'gts': gts,
-			# 'ad': ad,
-			# 'ads': ads,
 			'quality': quality
 		}
 		
 
 		if (int(gq) >= min_gq & int(dp) >= min_dp & int(quality) >= min_qual):
-			# print(variant_counter)
 			variants_df = pd.DataFrame(variants_dict_entry, index=[variant_counter])
 			df_variants = pd.concat([df_variants, variants_df])
 			variant_counter += 1
-			# if variant_counter >100:
-			# 	exit()
 
 		# now we have created variant object let us count the number for each block
 
@@ -322,21 +301,12 @@ def plot_variants(chromosome, df, output):
 		
 		scale_factor = 3
 
-	# xticks_chrom = np.arange(plot_min, plot_max, block_size*scale_factor)
-	# xticks_labels = np.arange(plot_min, plot_max, block_size*scale_factor)
-	# x_ticks_labels = [int(x/1000000) for x in xticks_chrom]
-
 	# plot and format axis
 	fig, ax = plt.subplots(figsize=(16,5))
 	ax.scatter(x='pos',y='af', data=chrom_prop_df, s=2, alpha=0.5)
-	# ax.set_xticks(xticks_chrom)
-	# ax.set_xlim([plot_min-1000000, plot_max+1000000])
-	# ax.set_ylim([-0.02, 1.05])
-	# ax.set_xticklabels(x_ticks_labels)
 	ax.set_xlabel(f'Chromosome {chromosome} Position (Mb)')
 	ax.set_ylabel('Proportion of Variants')
-	# ax.legend(loc='upper right')
-
+	
 	plt.savefig(output, format='png')
 
 	plt.close("all")
@@ -440,7 +410,9 @@ def get_genome_build(vcf):
 	Get the genome build from the header
 	"""
 	bcf_in = VariantFile(vcf)
-
+	# xticks_chrom = np.arange(plot_min, plot_max, block_size*scale_factor)
+	# xticks_labels = np.arange(plot_min, plot_max, block_size*scale_factor)
+	# x_ticks_labels = [int(x/1000000) for x in xticks_chrom]
 	header = bcf_in.header
 
 	header =  str(header)
