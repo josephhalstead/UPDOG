@@ -1,9 +1,8 @@
 import setuptools
 
-
 setuptools.setup(
     name='pyupdog',
-    version='1.0.6',
+    version='1.1.0',
     author='Joseph Halstead',
     author_email='josephhalstead89@gmail.com',
     description='Python program for calculating UPD',
@@ -17,11 +16,11 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     install_requires=[
-   'pysam>=0.16',
-   'pandas>=1.3.2',
-   'seaborn>=0.10.1',
-   'scipy>=1.4.1',
-   'pyvariantfilter>=1.0.4',
-   'numpy>=1.18.1'
+   'python>=3.11''
+   'pysam>=0.22.1',
+   'pandas>=2.2',
+   'seaborn>=0.13',
+   'scipy>=1.14',
+   'pyvariantfilter>=2.1.0',
 ],
 )
