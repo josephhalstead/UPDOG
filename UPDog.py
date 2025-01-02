@@ -140,7 +140,6 @@ for chromosome in chromosomes_to_analyze:
 		df_variants['chromosome'] = chromosome
 		
 		variants_df = variants_df._append(df_variants)
-		print(f"Plotting {len(variants_df.index)} variants in proportion of variants plot {chromosome}")
 
 # save raw data to file
 print ('Saving Variants file to disk.')
