@@ -16,7 +16,7 @@ setuptools.setup(
         'Operating System :: OS Independent',
     ],
     install_requires=[
-   'python>=3.11''
+   'python>=3.11',
    'pysam>=0.22.1',
    'pandas>=2.2',
    'seaborn>=0.13',
