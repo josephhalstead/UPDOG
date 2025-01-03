@@ -2,11 +2,11 @@ import setuptools
 
 setuptools.setup(
     name='pyupdog',
-    version='1.1.0',
+    version='1.2.1',
     author='Joseph Halstead',
     author_email='josephhalstead89@gmail.com',
     description='Python program for calculating UPD',
-    long_description='test',
+    long_description='Python program for calculating UPD',
     long_description_content_type='text/markdown',
     url='https://github.com/josephhalstead/pyvariantfilter',
     packages=setuptools.find_packages(),
@@ -15,8 +15,8 @@ setuptools.setup(
         'Programming Language :: Python :: 3',
         'Operating System :: OS Independent',
     ],
+    python_requires='>=3.11',
     install_requires=[
-   'python>=3.11',
    'pysam>=0.22.1',
    'pandas>=2.2',
    'seaborn>=0.13',

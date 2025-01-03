@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import sys
 import pandas as pd
 from pyvariantfilter.family import Family
 from pyvariantfilter.family_member import FamilyMember
@@ -71,6 +72,7 @@ filtered_ped = ped_df[ped_df['sample_id']==proband_id]
 dad = filtered_ped['paternal_id'].iloc[0]
 mum = filtered_ped['maternal_id'].iloc[0]
 sex = filtered_ped['sex'].iloc[0]
+affected = filtered_ped['affected'].iloc[0]
 
 # get family id
 family_id = filtered_ped['family_id'].iloc[0]
@@ -83,6 +85,12 @@ if dad == '0' or mum == '0':
 else:
 
 	singleton = False
+
+
+if affected != '2':
+
+	print('Sample must be affected in PED to create plots. Set affected solumn to 2.')
+	sys.exit(0)
 
 # make a family object
 my_family = Family(family_id)
