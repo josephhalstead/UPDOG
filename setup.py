@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='pyupdog',
-    version='1.2.1',
+    version='1.2.2',
     author='Joseph Halstead',
     author_email='josephhalstead89@gmail.com',
     description='Python program for calculating UPD',

@@ -11,30 +11,30 @@ from upd.utility_funcs import calculate_upd_metrics_per_chromosome, create_ax_fo
 from pysam import VariantFile
 
 parser = argparse.ArgumentParser(description='Find UPD events in NGS Trio Data')
-parser.add_argument('--vcf', type=str, nargs=1, required=True,
+parser.add_argument('--vcf', type=str, required=True,
 				help='The path to the VCF file. Must be bgzipped and tabixed.')
-parser.add_argument('--proband_id', type=str, nargs=1, required=True,
+parser.add_argument('--proband_id', type=str, required=True,
 				help='The Sample ID of the proband in the VCF.')
-parser.add_argument('--ped', type=str, nargs=1, required=True,
+parser.add_argument('--ped', type=str, required=True,
 				help='A ped file describing the family relationships.')
-parser.add_argument('--output', type=str, nargs=1, required=True, help='The output name prefix.')
-parser.add_argument('--min_dp', type=int, nargs=1, required=False, default=20, help='The minimum genotype depth. Default = 20')
-parser.add_argument('--block_size', type=int, nargs=1, required=False, default=1000000, help='The block size for calculating areas of chromsome affected by UPD. Default = 1000000')
-parser.add_argument('--min_gq', type=int, nargs=1, required=False, default=20, help='The minimum genotype quality (GQ). Default = 90')
-parser.add_argument('--min_qual', type=int, nargs=1, required=False, default=90, help='The minimum QUAL value. Default = 15')
-parser.add_argument('--min_variants_per_block', type=int, nargs=1, default=100, help='The minimum number of variants in a block. Default = 100')
-parser.add_argument('--p_value', type=float, nargs=1, required=False, default=0.001, help='The maximum P value for statistical test for block significance. Default = 0.001')
-parser.add_argument('--chromosome', type=str, nargs=1, required=False, help='Restrict to single chromosome. WARNING: For testing purposes only. E.g. "chr22"')
-parser.add_argument('--min_blocks', type=int, nargs=1, required=False, default=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
-parser.add_argument('--min_proportion', type=float, nargs=1, required=False, default=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
-parser.add_argument('--prop_plot', type=bool, nargs=1, required=False, default=False, help='Plot proportion of variants plot per chromosome. True/False, default = False')
+parser.add_argument('--output', type=str, required=True, help='The output name prefix.')
+parser.add_argument('--min_dp', type=int, required=False, default=20, help='The minimum genotype depth. Default = 20')
+parser.add_argument('--block_size', type=int, required=False, default=1000000, help='The block size for calculating areas of chromsome affected by UPD. Default = 1000000')
+parser.add_argument('--min_gq', type=int, required=False, default=20, help='The minimum genotype quality (GQ). Default = 20')
+parser.add_argument('--min_qual', type=int,required=False, default=90, help='The minimum QUAL value. Default = 90')
+parser.add_argument('--min_variants_per_block',  nargs=1, default=100, help='The minimum number of variants in a block. Default = 100')
+parser.add_argument('--p_value', type=float, required=False, default=0.001, help='The maximum P value for statistical test for block significance. Default = 0.001')
+parser.add_argument('--chromosome', type=str, required=False, help='Restrict to single chromosome. WARNING: For testing purposes only. E.g. "chr22"')
+parser.add_argument('--min_blocks', type=int, required=False, default=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
+parser.add_argument('--min_proportion', type=float, required=False, default=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
+parser.add_argument('--prop_plot', type=bool, required=False, default=False, help='Plot proportion of variants plot per chromosome. True/False, default = False')
 
 args = parser.parse_args()
 
-vcf = args.vcf[0]
-proband_id = args.proband_id[0]
-ped = args.ped[0]
-output = args.output[0]
+vcf = args.vcf
+proband_id = args.proband_id
+ped = args.ped
+output = args.output
 min_dp = args.min_dp
 min_gq = args.min_gq
 min_qual = args.min_qual
@@ -47,7 +47,7 @@ prop_plot = args.prop_plot
 
 if args.chromosome != None:
 
-	chromosome = args.chromosome[0]
+	chromosome = args.chromosome
 	just_one_chromosome = True
 
 else:
@@ -162,9 +162,6 @@ master_df = pd.concat(master_df_list, ignore_index=True)
 
 if prop_plot:
 	variants_df = pd.concat(variants_df_list, ignore_index=True)
-
-variants_df.to_csv('test.csv')
-
 
 # convert columns to proportions e.g. proportion of variants with errors
 master_df['prop_alleles_identical_to_dad_count'] = master_df['alleles_identical_to_dad_count']/master_df['variant_count']
