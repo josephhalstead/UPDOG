@@ -27,7 +27,8 @@ parser.add_argument('--p_value', type=float, required=False, default=0.001, help
 parser.add_argument('--chromosome', type=str, required=False, help='Restrict to single chromosome. WARNING: For testing purposes only. E.g. "chr22"')
 parser.add_argument('--min_blocks', type=int, required=False, default=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
 parser.add_argument('--min_proportion', type=float, required=False, default=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
-parser.add_argument('--prop_plot', type=bool, required=False, default=False, help='Plot proportion of variants plot per chromosome. True/False, default = False')
+parser.add_argument('--prop_plot', type=bool, required=False, default=False, help='Plot proportion of variants plot (BAF) per chromosome. True/False, default = False')
+parser.add_argument('--wes', type=bool, required=False, default=False, help='BAF plot not downsampled - better for WES data. True/False, default = False')
 
 args = parser.parse_args()
 
@@ -44,6 +45,7 @@ min_variants_per_block = args.min_variants_per_block
 min_blocks = args.min_blocks
 min_proportion = args.min_proportion
 prop_plot = args.prop_plot
+wes = args.wes
 
 ## Print all arguments to terminal ##
 # print(f"vcf {vcf}\nproband_id {proband_id}\nped {ped}\noutput {output}\nmin_dp {min_dp}\nmin_gq {min_gq}\nmin_qual \
@@ -222,7 +224,7 @@ for chromosome in chromosomes_to_analyze:
 		
 		print(f'Plotting {len(variants_df.index)} variants in proportion of variants plot {chromosome}')
 		
-		plot_variants(chromosome, variants_df, variant_plot_location, block_size)
+		plot_variants(chromosome, variants_df, variant_plot_location, block_size, wes)
 
 
 # get mean so we know what expected ratio is i.e. that caused by errors - hmm what if every chromosome is UPD?

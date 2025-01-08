@@ -42,7 +42,8 @@ UPDog.py \
   --min_blocks <int>             # Minimum contiguous blocks for calls (default: 5)
   --min_proportion <float>       # Minimum UPD variant proportion (default: 0.01)
   --chromosome <str>             # Restrict to single chromosome (testing only)
-  --prop_plot <bool>             # Plot variant proportions (default: False)
+  --prop_plot <bool>             # Plot variant proportions aka BAF plot (default: False)
+  --wes <bool>                   # BAF plot not downsampled - better for WES data (default: False)
 ```
 
 ## Analysis Method
