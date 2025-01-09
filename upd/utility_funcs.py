@@ -221,8 +221,8 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 	return block_dict, variant_list
 
 def replace_with_na(df, column, min_count):
-	
-	if df['variant_count'] < min_count:
+
+	if int(df['variant_count']) < int(min_count):
 		
 		return np.nan
 		
@@ -268,7 +268,7 @@ def create_ax_for_plotting(chromosome, df, block_size, output):
 
 	plt.close('all')
 
-def plot_variants(chromosome, df, output, block_size, sample_fraction=0.3):
+def plot_variants(chromosome, df, output, block_size, wes_status):
 	"""
 	Plots allele frequency vs. position for a given chromosome with optional downsampling.
 
@@ -280,6 +280,11 @@ def plot_variants(chromosome, df, output, block_size, sample_fraction=0.3):
 	sample_fraction (float): Fraction of data to sample for plotting (default: 0.1).
 	"""
 	# Filter data for the specific chromosome
+	if wes_status:
+		sample_fraction = 1.0
+	else:
+		sample_fraction = 0.3
+	
 	chrom_prop_df = df[df['chrom'] == chromosome]
 
 	# Downsample the data
