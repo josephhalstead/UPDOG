@@ -28,7 +28,7 @@ parser.add_argument('--chromosome', type=str, required=False, help='Restrict to 
 parser.add_argument('--min_blocks', type=int, required=False, default=5, help='The minimum number of contiguous blocks for a call not to be filtered. Default = 5')
 parser.add_argument('--min_proportion', type=float, required=False, default=0.01, help='If the proportion of UPD variants in a contiguous block is below this then apply a filter. Default = 0.01')
 parser.add_argument('--prop_plot', type=bool, required=False, default=False, help='Plot proportion of variants plot (BAF) per chromosome. True/False, default = False')
-parser.add_argument('--wes', type=bool, required=False, default=False, help='BAF plot not downsampled - better for WES data. True/False, default = False')
+parser.add_argument('--downsample', type=float, required=False, default=0.3, help='Downsample variants for BAF plot by this proportion.')
 
 args = parser.parse_args()
 
@@ -45,12 +45,7 @@ min_variants_per_block = args.min_variants_per_block
 min_blocks = args.min_blocks
 min_proportion = args.min_proportion
 prop_plot = args.prop_plot
-wes = args.wes
-
-## Print all arguments to terminal ##
-# print(f"vcf {vcf}\nproband_id {proband_id}\nped {ped}\noutput {output}\nmin_dp {min_dp}\nmin_gq {min_gq}\nmin_qual \
-# 	{min_qual}\np_value {p_value}\nblock_size {block_size}\nmin_variants_per_block {min_variants_per_block}\nmin_blocks \
-# 	{min_blocks}\nmin_proportion {min_proportion}\nprop_plot {prop_plot}")
+downsample = args.downsample
 
 if args.chromosome != None:
 
@@ -70,8 +65,9 @@ genome_build = get_genome_build(vcf)
 ped_df = pd.read_csv(ped, sep='\t', names=['family_id', 'sample_id', 'paternal_id', 'maternal_id', 'sex', 'affected'], dtype={'sex': str,
 																															 'affected': str,
 																															 'paternal_id': str,
-																															 'maternal_id': str})
-
+																															 'maternal_id': str,
+																															 'family_id': str,
+																															 })
 # filter by proband
 filtered_ped = ped_df[ped_df['sample_id']==proband_id]
 
@@ -83,6 +79,7 @@ affected = filtered_ped['affected'].iloc[0]
 
 # get family id
 family_id = filtered_ped['family_id'].iloc[0]
+
 
 # Record as singleton if we don't have mum and dad
 if dad == '0' or mum == '0':
@@ -99,9 +96,22 @@ if affected != '2':
 	print('Sample must be affected in PED to create plots. Set affected solumn to 2.')
 	sys.exit(0)
 
-# make a family object
-my_family = Family(family_id)
-my_family.read_from_ped_file(ped, family_id, proband_id)
+
+if family_id == '0':
+
+	proband = FamilyMember(proband_id, proband_id, int(sex), True)
+
+	my_family = Family(proband_id)
+
+	my_family.add_family_member(proband)
+
+	my_family.set_proband(proband.get_id())
+
+else:
+
+	# make a family object
+	my_family = Family(family_id)
+	my_family.read_from_ped_file(ped, family_id, proband_id)
 
 # check which chromosomes to analyse
 if just_one_chromosome == True:
@@ -224,7 +234,7 @@ for chromosome in chromosomes_to_analyze:
 		
 		print(f'Plotting {len(variants_df.index)} variants in proportion of variants plot {chromosome}')
 		
-		plot_variants(chromosome, variants_df, variant_plot_location, block_size, wes)
+		plot_variants(chromosome, variants_df, variant_plot_location, block_size, downsample)
 
 
 # get mean so we know what expected ratio is i.e. that caused by errors - hmm what if every chromosome is UPD?
