@@ -91,7 +91,7 @@ else:
 	singleton = False
 
 
-if affected != '2':
+if affected != '2' or sex == '0':
 
 	print('Sample must be affected in PED to create plots. Set affected solumn to 2.')
 	sys.exit(0)
