@@ -147,7 +147,10 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 			alleles_identical_to_dad =  new_variant.alleles_identical_to_dad(min_parental_gq = min_gq, min_parental_depth = min_dp)
 			alleles_identical_to_mum = new_variant.alleles_identical_to_mum(min_parental_gq = min_gq, min_parental_depth = min_dp)
 
-			is_homozygous = new_variant.is_homozygous(proband_id)
+			if new_variant.is_hom_alt(proband_id):
+				is_homozygous = True
+			else:
+				is_homozygous = False			
 
 			is_biparental = new_variant.is_biparental_inheritance(min_parental_gq = min_gq, min_parental_depth = min_dp)
 
