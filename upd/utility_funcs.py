@@ -147,7 +147,10 @@ def calculate_upd_metrics_per_chromosome(vcf, chromosome_to_analyze, family, blo
 			alleles_identical_to_dad =  new_variant.alleles_identical_to_dad(min_parental_gq = min_gq, min_parental_depth = min_dp)
 			alleles_identical_to_mum = new_variant.alleles_identical_to_mum(min_parental_gq = min_gq, min_parental_depth = min_dp)
 
-			is_homozygous = new_variant.is_homozygous(proband_id)
+			if new_variant.is_hom_alt(proband_id):
+				is_homozygous = True
+			else:
+				is_homozygous = False			
 
 			is_biparental = new_variant.is_biparental_inheritance(min_parental_gq = min_gq, min_parental_depth = min_dp)
 
@@ -298,15 +301,23 @@ def plot_variants(chromosome, df, output, block_size, sample_fraction):
 	xticks_chrom = np.arange(plot_min, plot_max, block_size * scale_factor)
 	x_ticks_labels = [int(x / 1000000) for x in xticks_chrom]
 
-	# Plot and format axis
-	fig, ax = plt.subplots(figsize=(20, 5))
+	# Plot BAF plot with a smaller depth plot sharing the same X-axis directly underneath
+	fig, (ax, ax_depth) = plt.subplots(2, 1, figsize=(20, 6), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+
 	ax.scatter(x='pos', y='af', data=chrom_prop_df, s=2, alpha=0.5)
-	ax.set_xticks(xticks_chrom)
 	ax.set_xlim([plot_min - 1000000, plot_max + 1000000])
 	ax.set_ylim([-0.02, 1.05])
-	ax.set_xticklabels(x_ticks_labels)
-	ax.set_xlabel(f'Chromosome {chromosome} Position (Mb)')
 	ax.set_ylabel('Beta Allele Frequency')
+	ax.tick_params(labelbottom=False)
+
+	ax_depth.scatter(x='pos', y='dp', data=chrom_prop_df, s=2, alpha=0.5, color='grey')
+	ax_depth.set_xticks(xticks_chrom)
+	ax_depth.set_xticklabels(x_ticks_labels)
+	ax_depth.set_xlabel(f'Chromosome {chromosome} Position (Mb)')
+	ax_depth.set_ylabel('Depth')
+	ax_depth.set_ylim(bottom=0)
+
+	fig.subplots_adjust(hspace=0.05)
 
 	# Save and close plot
 	plt.savefig(output, format='png')
